@@ -22,8 +22,15 @@ const unlinkAsync = util.promisify(fs.unlink);
 
 const statAsync = util.promisify(fs.stat);
 async function existsAsync(file) {
-    const stat = await statAsync(file, {});
-    return !!stat;
+    try {
+        const stat = await statAsync(file, {});
+        return !!stat;
+    } catch(e) {
+        if (e && e.code === 'ENOENT') {
+            return false;
+        }
+        throw e;
+    }
 }
 
 const LANGUAGES = {
