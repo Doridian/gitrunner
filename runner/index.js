@@ -82,8 +82,7 @@ class Service {
         for (let i = PORTBASE; i < PORTMAX; i++) {
             if (!this.USEDPORTS[i]) {
                 this.USEDPORTS[i] = this;
-                this.execOptions.env.PORT = i;
-                break;
+                return i;
             }
         }
     }
@@ -114,7 +113,7 @@ class Service {
             return;
         }
         
-        this._assignPort();
+        this.execOptions.env.PORT = this._assignPort();
         if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT)) {
             await unlinkAsync(this.execOptions.env.PORT);
         }
