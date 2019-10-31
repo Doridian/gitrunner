@@ -272,6 +272,12 @@ http.createServer((req, res) => {
         innerRes.pipe(res);
     });
 
+    innerReq.on('error', e => {
+        res.writeHead(500, {'Content-Type': 'text/plain'});
+        res.write(e.stack || e);
+        res.end();
+    });
+
     req.pipe(innerReq);
 }).listen(8000, '0.0.0.0');
 
