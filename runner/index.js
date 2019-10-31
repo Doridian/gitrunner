@@ -72,7 +72,7 @@ class Service {
 
     _assignPort() {
         if (this.execOptions.env.PORT) {
-            return;
+            return this.execOptions.env.PORT;
         }
 
         if (this.lang.allowUnix) {
@@ -89,6 +89,7 @@ class Service {
 
     _unassignPort() {
         if (this.lang.allowUnix || !this.execOptions.env.PORT) {
+            delete this.execOptions.env.PORT;
             return;
         }
 
