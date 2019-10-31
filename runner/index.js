@@ -6,6 +6,8 @@ const util = require('util');
 const fs = require('fs');
 const path = require('path');
 
+const BASEDIR = '/srv/deploy';
+
 async function spawnAsync(cmd, args, options) {
     return new Promise((resolve, reject) => {
         const proc = child_process.spawn(cmd, args, options);
@@ -57,9 +59,10 @@ const PORTMAX  = 50000;
 const USEDPORTS = {};
 
 class Service {
-    constructor(folder, lang) {
+    constructor(folder, name, lang) {
         this.lang = lang;
         this.folder = folder;
+        this.name = name;
         this.shouldRun = false;
         this.child = undefined;
 
@@ -73,13 +76,17 @@ class Service {
         };
     }
 
+    getPort() {
+        return this.execOptions.env.PORT;
+    }
+
     _assignPort() {
         if (this.execOptions.env.PORT) {
             return this.execOptions.env.PORT;
         }
 
         if (this.lang.allowUnix) {
-            return `/srv/sockets/${path.basename(this.folder)}.sock`;
+            return `/srv/sockets/${this.name}.sock`;
         }
 
         for (let i = PORTBASE; i < PORTMAX; i++) {
@@ -101,9 +108,7 @@ class Service {
     }
 
     async init() {
-        console.log('INIT', this.folder);
-        this._unassignPort();
-
+        console.log('INIT', this.name);
         for (const cmd of this.lang.init) {
             await spawnAsync(cmd[0], cmd[1], this.execOptions);
         }
@@ -111,25 +116,23 @@ class Service {
 
     async start() {
         this.shouldRun = true;
+        this.execOptions.env.PORT = this._assignPort();
         await this._start();
     }
 
     async stop() {
         this.shouldRun = false;
         await this._stop();
+        this._unassignPort();
     }
     
     async _start() {
-        console.log('START', this.folder);
-        if (!this.shouldRun) {
+        if (!this.shouldRun || this.child) {
             return;
         }
+
+        console.log('START', this.name);
         
-        if (this.child) {
-            return;
-        }
-        
-        this.execOptions.env.PORT = this._assignPort();
         if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT)) {
             await unlinkAsync(this.execOptions.env.PORT);
         }
@@ -142,8 +145,7 @@ class Service {
     }
 
     async _stop() {
-        console.log('STOP', this.folder);
-        this._unassignPort();
+        console.log('STOP', this.name);
 
         if (this.child) {
             this.child.kill();
@@ -168,7 +170,8 @@ async function runDeploy(repo) {
         throw new Error('Invalid repo name: ' + repo);
     }
 
-    const folder = `/srv/deploy/${repo}`;
+    const folder = path.join(BASEDIR, repo);
+    const name = repo.replace(/\.git$/, '');
 
     let lang = LANGUAGES.default;
     for (const langName of Object.keys(LANGUAGES)) {
@@ -178,21 +181,24 @@ async function runDeploy(repo) {
         }
 
         if (await existsAsync(`${folder}/${langVal.file}`)) {
+            console.log('Detected runtime', langName);
             lang = langVal;
             break;
         }
     }
 
-    let service = SERVICES[repo];
+    let service = SERVICES[name];
     if (service) {
         await service.stop();
     }
-    service = new Service(folder, lang);
-    SERVICES[repo] = service;
+    service = new Service(folder, name, lang);
+    SERVICES[name] = service;
 
     await service.init();
     await service.start();
 }
+
+fs.unlinkSync('/tmp/gitdeploy-master.sock');
 
 http.createServer((req, res) => {
     runDeploy(req.url.substr(1))
@@ -204,6 +210,45 @@ http.createServer((req, res) => {
         res.write(err.stack || err);
         res.end();
     });
-}).listen(process.env.PORT || 8080);
+}).listen('/tmp/gitdeploy-master.sock');
+
+http.createServer((req, res) => {
+    const host = req.headers.host;
+    if (!host) {
+        res.writeHead(400);
+        res.end();
+        return;
+    }
+
+    const service = SERVICES[host.split('.')[0]];
+    if (!service) {
+        res.writeHead(404);
+        res.end();
+        return;
+    }
+
+    const port = service.getPort();
+
+    const innerOptions = {
+        path: req.url,
+        headers: req.headers,
+        method: req.method,
+        setHost: false,
+    };
+
+    if (isFinite(port)) {
+        innerOptions.host = '127.0.0.1';
+        innerOptions.port = port;
+    } else {
+        innerOptions.socketPath = port;
+    }
+
+    const innerReq = http.request(innerOptions, (innerRes) => {
+        res.writeHead(innerRes.statusCode, innerRes.headers);
+        innerRes.pipe(res);
+    });
+
+    req.pipe(innerReq);
+}).listen('0.0.0.0:8000');
 
 console.log('Online');
