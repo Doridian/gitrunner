@@ -204,6 +204,7 @@ class Service {
         return new Promise((resolve, reject) => {
             const options = {
                 path: '/healthcheck',
+                timeout: 1000,
             };
             this.setHttpOptions(options);
             const req = http.get(options, (res) => {
@@ -331,6 +332,7 @@ http.createServer((req, res) => {
         headers: req.headers,
         method: req.method,
         setHost: false,
+        timeout: 10000,
     };
 
     service.setHttpOptions(innerOptions);
