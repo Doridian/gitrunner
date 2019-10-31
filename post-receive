@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+
+GIT_DIR="$PWD"
+TARGET_DIR="/srv/deploy/$(basename $GIT_DIR)"
+
+while read oldrev newrev ref
+do
+	if [ "$ref" = 'refs/heads/master' ];
+	then
+		echo "Deploying $newrev..."
+		mkdir -p "$TARGET_DIR"
+		git "--work-tree=$TARGET_DIR" "--git-dir=$GIT_DIR" checkout -f "$newrev" -q
+		/home/git/deploy "$TARGET_DIR"
+		echo "Deploy completed"
+	fi
+done
