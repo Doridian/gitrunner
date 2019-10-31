@@ -170,6 +170,7 @@ async function runDeploy(repo) {
         throw new Error('Invalid repo name: ' + repo);
     }
 
+    console.log(BASEDIR, repo);
     const folder = path.join(BASEDIR, repo);
     const name = repo.replace(/\.git$/, '');
 
@@ -179,8 +180,6 @@ async function runDeploy(repo) {
         if (!langVal.file) {
             continue;
         }
-
-        console.log(folder, path.join(folder, langVal.file));
 
         if (await existsAsync(path.join(folder, langVal.file))) {
             console.log('Detected runtime', langName);
