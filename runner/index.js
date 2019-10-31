@@ -284,8 +284,8 @@ class ProxyStream extends stream.Writable {
         this.data = '';
     }
 
-    _write(chunk, enc, cb) {
-        this.data += chunk.toString(enc);
+    _write(chunk, _, cb) {
+        this.data += chunk.toString();
         console.log('CC', chunk);
         cb();
     }
