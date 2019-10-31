@@ -69,7 +69,7 @@ class Service {
 
         this.execOptions = {
             cwd: folder,
-            stdio: ['inherit', 'inherit', 'inherit'],
+            stdio: ['ignore', 'inherit', 'inherit'],
             env: {
                 PATH: process.env.PATH,
                 NODE_ENV: 'production',
@@ -119,11 +119,17 @@ class Service {
         delete this.execOptions.env.PORT;
     }
 
-    async init() {
+    async init(initStream) {
         console.log('INIT', this.name);
+
         for (const cmd of this.lang.init) {
-            await spawnAsync(cmd[0], cmd[1], this.execOptions);
+            await spawnAsync(cmd[0], cmd[1], {
+                ...this.execOptions,
+                stdiot: ['ignore', initStream, initStream],
+            });
         }
+
+        return data;
     }
 
     async start() {
@@ -214,7 +220,7 @@ class Service {
     }
 }
 
-async function runDeploy(repo) {
+async function runDeploy(repo, res) {
     if (repo === '.' || repo.includes('..') || /[^A-Za-z0-9\._\-]/.test(repo)) {
         throw new Error('Invalid repo name: ' + repo);
     }
@@ -243,14 +249,14 @@ async function runDeploy(repo) {
     service = new Service(folder, name, lang);
     SERVICES[name] = service;
 
-    await service.init();
+    await service.init(res);
     await service.start();
 }
 
 console.log('Scanning old directories...');
 const dirs = fs.readdirSync(BASEDIR);
 for (const dir of dirs) {
-    runDeploy(dir).catch(e => console.error(e));
+    runDeploy(dir, 'inherit').catch(e => console.error(e));
 }
 
 try {
@@ -258,13 +264,17 @@ try {
 } catch { }
 
 http.createServer((req, res) => {
-    runDeploy(req.url.substr(1))
+    const stream = new WritableStream();
+    runDeploy(req.url.substr(1), stream)
     .then(() => {
-        res.writeHead(204);
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.write(stream);
         res.end();
     }, err => {
         res.writeHead(500, {'Content-Type': 'text/plain'});
         res.write(err.stack || err);
+        res.write('\n');
+        stream.pipe(res);
         res.end();
     });
 }).listen('/tmp/gitdeploy-master.sock');
