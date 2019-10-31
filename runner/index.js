@@ -42,6 +42,7 @@ class Service {
 
         this.child = child_process.exec(this.lang.run, this.execOptions, () => {
             this.child = undefined;
+            this.restart();
         });
     }
 
