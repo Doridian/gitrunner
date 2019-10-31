@@ -23,6 +23,7 @@ class Service {
         this.child = undefined;
         this.execOptions = {
             cwd: folder,
+            stdio: ['inherit', 'inherit', 'inherit'],
         };
     }
 
