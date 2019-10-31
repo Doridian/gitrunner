@@ -143,13 +143,18 @@ class Service {
         this.child = child;
 
         const self = this;
-        function onExit() {
+        function _onExit() {
             if (self.child !== child) {
                 return;
             }
             self.child = undefined;
             self.restart();
         }
+
+        function onExit() {
+            setTimeout(_onExit, 1000);
+        }
+
 
         child.on('exit', onExit);
         child.on('error', onExit);
