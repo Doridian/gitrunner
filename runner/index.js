@@ -271,7 +271,7 @@ async function runDeploy(repo, stream) {
 console.log('Scanning old directories...');
 const dirs = fs.readdirSync(BASEDIR);
 for (const dir of dirs) {
-    runDeploy(dir, 'inherit').catch(e => console.error(e));
+    runDeploy(dir).catch(e => console.error(e));
 }
 
 try {
