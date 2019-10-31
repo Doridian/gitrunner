@@ -17,6 +17,7 @@ async function spawnAsync(cmd, args, options) {
             }
             resolve(proc);
         });
+        proc.on('error', reject);
     });
 }
 
@@ -137,11 +138,20 @@ class Service {
             await unlinkAsync(this.execOptions.env.PORT);
         }
 
-        this.child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions);
-        this.child.on('exit', () => {
-            this.child = undefined;
-            this.restart();
-        });
+        const child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions);
+        this.child = child;
+
+        const self = this;
+        function onExit() {
+            if (self.child !== child) {
+                return;
+            }
+            self.child = undefined;
+            self.restart();
+        }
+
+        child.on('exit', onExit);
+        child.on('error', onExit);
     }
 
     async _stop() {
