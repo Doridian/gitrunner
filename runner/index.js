@@ -142,6 +142,10 @@ class Service {
             this.child = undefined;
             this.restart();
         });
+        this.child.on('error', () => {
+            this.child = undefined;
+            this.restart();            
+        });
     }
 
     async _stop() {
