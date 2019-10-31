@@ -22,7 +22,7 @@ const unlinkAsync = util.promisify(fs.unlink);
 
 const statAsync = util.promisify(fs.stat);
 async function existsAsync(file) {
-    const stat = await statAsync(file);
+    const stat = await statAsync(file, {});
     return !!stat;
 }
 
