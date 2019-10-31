@@ -176,7 +176,7 @@ class Service {
 }
 
 async function runDeploy(repo) {
-    if (repo.includes('..') || /[^A-Za-z0-9\._\-]/.test(repo)) {
+    if (repo === '.' || repo.includes('..') || /[^A-Za-z0-9\._\-]/.test(repo)) {
         throw new Error('Invalid repo name: ' + repo);
     }
 
@@ -207,6 +207,12 @@ async function runDeploy(repo) {
 
     await service.init();
     await service.start();
+}
+
+console.log('Scanning old directories...');
+const dirs = fs.readdirSync(BASEDIR);
+for (const dir of dirs) {
+    runDeploy(dir).catch(e => console.error(e));
 }
 
 try {
@@ -264,4 +270,4 @@ http.createServer((req, res) => {
     req.pipe(innerReq);
 }).listen(8000, '0.0.0.0');
 
-console.log('Online');
+console.log('Online.');
