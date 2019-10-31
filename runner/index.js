@@ -7,9 +7,9 @@ const LANGUAGES = {
     nodejs: {
         init: [
             ['npm', ['ci']],
-            ['npm' ['run', 'build', '--if-present']],
+            ['npm', ['run', 'build', '--if-present']],
         ],
-        run: 'npm start'
+        run: ['npm', ['start']],
     },
 };
 
