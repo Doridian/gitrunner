@@ -219,7 +219,7 @@ class Service {
     }
 }
 
-async function runDeploy(repo, res) {
+async function runDeploy(repo, stream) {
     if (repo === '.' || repo.includes('..') || /[^A-Za-z0-9\._\-]/.test(repo)) {
         throw new Error('Invalid repo name: ' + repo);
     }
@@ -248,7 +248,7 @@ async function runDeploy(repo, res) {
     service = new Service(folder, name, lang);
     SERVICES[name] = service;
 
-    await service.init(res);
+    await service.init(stream);
     await service.start();
 }
 
@@ -270,6 +270,7 @@ class ProxyStream extends stream.Writable {
 
     _write(chunk, enc, cb) {
         this.data += chunk.toString(enc);
+        console.log('CC', chunk);
         cb();
     }
 }
