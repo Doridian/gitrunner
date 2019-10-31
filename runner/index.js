@@ -265,6 +265,11 @@ try {
 
 http.createServer((req, res) => {
     const stream = new WritableStream();
+    let data = '';
+    stream.on('data', chunk => {
+        data += chunk;
+    });
+
     runDeploy(req.url.substr(1), stream)
     .then(() => {
         res.writeHead(200, {'Content-Type': 'text/plain'});
@@ -274,7 +279,7 @@ http.createServer((req, res) => {
         res.writeHead(500, {'Content-Type': 'text/plain'});
         res.write(err.stack || err);
         res.write('\n');
-        stream.pipe(res);
+        res.write(data);
         res.end();
     });
 }).listen('/tmp/gitdeploy-master.sock');
