@@ -114,7 +114,7 @@ class Service {
             return;
         }
         
-        this.execOptions.env.PORT = this._assignPort();
+        this._assignPort();
         if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT)) {
             await unlinkAsync(this.execOptions.env.PORT);
         }
