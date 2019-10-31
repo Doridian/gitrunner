@@ -30,7 +30,7 @@ class Service {
     async init() {
         console.log('INIT', this.folder);
         for (const cmd of this.lang.init) {
-            child_process.execSync(cmd, this.execOptions);
+            child_process.spawnSync(cmd, this.execOptions);
         }
     }
     
@@ -41,7 +41,7 @@ class Service {
             return;
         }
 
-        this.child = child_process.exec(this.lang.run, this.execOptions, () => {
+        this.child = child_process.spawn(this.lang.run, this.execOptions, () => {
             this.child = undefined;
             this.restart();
         });
