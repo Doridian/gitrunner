@@ -105,11 +105,23 @@ class Service {
             await spawnAsync(cmd[0], cmd[1], this.execOptions);
         }
     }
-    
+
     async start() {
-        console.log('START', this.folder);
-        
         this.shouldRun = true;
+        await this._start();
+    }
+
+    async stop() {
+        this.shouldRun = false;
+        await this._stop();
+    }
+    
+    async _start() {
+        console.log('START', this.folder);
+        if (!this.shouldRun) {
+            return;
+        }
+        
         if (this.child) {
             return;
         }
@@ -126,11 +138,10 @@ class Service {
         });
     }
 
-    async stop() {
+    async _stop() {
         console.log('STOP', this.folder);
         this._unassignPort();
 
-        this.shouldRun = false;
         if (this.child) {
             this.child.kill();
             this.child = undefined;
@@ -144,8 +155,8 @@ class Service {
     }
 
     async restart() {
-        await this.stop();
-        await this.start();
+        await this._stop();
+        await this._start();
     }
 }
 
