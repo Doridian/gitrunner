@@ -142,10 +142,6 @@ class Service {
             this.child = undefined;
             this.restart();
         });
-        this.child.on('error', () => {
-            this.child = undefined;
-            this.restart();            
-        });
     }
 
     async _stop() {
@@ -183,6 +179,8 @@ async function runDeploy(repo) {
         if (!langVal.file) {
             continue;
         }
+
+        console.log(path.join(folder, langVal.file));
 
         if (await existsAsync(path.join(folder, langVal.file))) {
             console.log('Detected runtime', langName);
