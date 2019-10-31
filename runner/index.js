@@ -10,6 +10,11 @@ const stream = require('stream');
 const BASEDIR = '/srv/deploy';
 
 async function spawnAsync(cmd, args, options) {
+    const pipe = options.pipe;
+    if (pipe) {
+        delete options.pipe;
+    }
+
     return new Promise((resolve, reject) => {
         const proc = child_process.spawn(cmd, args, options);
         proc.on('exit', (code) => {
@@ -19,6 +24,11 @@ async function spawnAsync(cmd, args, options) {
             resolve(proc);
         });
         proc.on('error', reject);
+
+        if (pipe) {
+            proc.stdout.pipe(pipe, { end: false });
+            proc.stderr.pipe(pipe, { end: false });
+        }
     });
 }
 
@@ -123,10 +133,16 @@ class Service {
     async init(initStream) {
         console.log('INIT', this.name);
 
+        let stdioType = 'inherit';
+        if (initStream) {
+            stdioType = 'pipe';
+        }
+
         for (const cmd of this.lang.init) {
             await spawnAsync(cmd[0], cmd[1], {
                 ...this.execOptions,
-                stdio: ['ignore', initStream, initStream],
+                stdio: ['ignore', stdioType, stdioType],
+                pipe: initStream,
             });
         }
     }
@@ -280,10 +296,14 @@ http.createServer((req, res) => {
 
     runDeploy(req.url.substr(1), stream)
     .then(() => {
+        stream.end();
+
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.write(stream.data);
         res.end();
     }, err => {
+        stream.end();
+
         res.writeHead(500, {'Content-Type': 'text/plain'});
         res.write(err.stack || err);
         res.write('\n');
