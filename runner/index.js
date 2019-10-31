@@ -126,7 +126,7 @@ class Service {
         for (const cmd of this.lang.init) {
             await spawnAsync(cmd[0], cmd[1], {
                 ...this.execOptions,
-                stdiot: ['ignore', initStream, initStream],
+                stdio: ['ignore', initStream, initStream],
             });
         }
     }
