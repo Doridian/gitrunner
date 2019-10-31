@@ -1,15 +1,15 @@
 'use strict';
 
-const http = require('http');
-const child_process = require('child_process');
-const util = require('util');
-const fs = require('fs');
-const path = require('path');
-const stream = require('stream');
+import * as http from 'http';
+import * as child_process from 'child_process';
+import * as util from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as stream from 'stream';
 
 const BASEDIR = '/srv/deploy';
 
-async function spawnAsync(cmd, args, options) {
+async function spawnAsync(cmd: string, args: string[], options: ExecOptions) {
     const pipe = options.pipe;
     if (pipe) {
         delete options.pipe;
@@ -17,7 +17,7 @@ async function spawnAsync(cmd, args, options) {
 
     return new Promise((resolve, reject) => {
         const proc = child_process.spawn(cmd, args, options);
-        proc.on('exit', (code) => {
+        proc.on('exit', (code: number) => {
             if (code) {
                 return reject(new Error(`Process exited with signal ${code}`));
             }
@@ -33,21 +33,18 @@ async function spawnAsync(cmd, args, options) {
 }
 
 const unlinkAsync = util.promisify(fs.unlink);
+const existsAsync = util.promisify(fs.exists);
 
-const statAsync = util.promisify(fs.stat);
-async function existsAsync(file) {
-    try {
-        const stat = await statAsync(file, {});
-        return !!stat;
-    } catch(e) {
-        if (e && e.code === 'ENOENT') {
-            return false;
-        }
-        throw e;
-    }
+interface Language {
+    file?: string;
+    init: [string, string[]][];
+    run: [string, string[]];
+    allowUnix: boolean;
 }
 
-const LANGUAGES = {
+const LANGUAGES: {
+    [key: string]: Language;
+} = {
     nodejs: {
         file: 'package.json',
         init: [
@@ -58,26 +55,36 @@ const LANGUAGES = {
         allowUnix: true,
     },
     default: {
-        init: [['./init'], []],
+        init: [['./init', []]],
         run: ['./run', []],
         allowUnix: true,
     },
 };
 
-const SERVICES = {};
+const SERVICES: {
+    [key: string]: Service;
+} = {};
 
 const PORTBASE = 40000;
 const PORTMAX  = 50000;
-const USEDPORTS = {};
+const USEDPORTS: {
+    [key: string]: Service;
+} = {};
+
+interface ExecOptions {
+    cwd: string;
+    stdio: [child_process.StdioNull, child_process.StdioNull, child_process.StdioNull];
+    env: {
+        [key: string]: string | undefined;
+    };
+    pipe?: stream.Writable;
+}
 
 class Service {
-    constructor(folder, name, lang) {
-        this.lang = lang;
-        this.folder = folder;
-        this.name = name;
-        this.shouldRun = false;
-        this.child = undefined;
-
+    private shouldRun = false;
+    private child: child_process.ChildProcessWithoutNullStreams | undefined;
+    private execOptions: ExecOptions;
+    constructor(folder: string, private name: string, private lang: Language) {
         this.execOptions = {
             cwd: folder,
             stdio: ['ignore', 'inherit', 'inherit'],
@@ -93,9 +100,9 @@ class Service {
         return this.execOptions.env.PORT;
     }
 
-    setHttpOptions(options) {
+    setHttpOptions(options: http.RequestOptions) {
         const port = this.getPort();
-        if (isFinite(port)) {
+        if (port !== undefined && isFinite(parseInt(port, 10))) {
             options.host = '127.0.0.1';
             options.port = port;
         } else {
@@ -103,7 +110,7 @@ class Service {
         }
     }
 
-    _assignPort() {
+    _assignPort(): string {
         if (this.execOptions.env.PORT) {
             return this.execOptions.env.PORT;
         }
@@ -113,11 +120,12 @@ class Service {
         }
 
         for (let i = PORTBASE; i < PORTMAX; i++) {
-            if (!this.USEDPORTS[i]) {
-                this.USEDPORTS[i] = this;
-                return i;
+            if (!USEDPORTS[i]) {
+                USEDPORTS[i] = this;
+                return i.toString();
             }
         }
+        throw new Error('Could not assign port');
     }
 
     _unassignPort() {
@@ -130,10 +138,10 @@ class Service {
         delete this.execOptions.env.PORT;
     }
 
-    async init(initStream) {
+    async init(initStream?: stream.Writable) {
         console.log('INIT', this.name);
 
-        let stdioType = 'inherit';
+        let stdioType: 'inherit' | 'pipe' = 'inherit';
         if (initStream) {
             stdioType = 'pipe';
         }
@@ -166,8 +174,8 @@ class Service {
 
         console.log('START', this.name);
         
-        if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT)) {
-            await unlinkAsync(this.execOptions.env.PORT);
+        if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT!)) {
+            await unlinkAsync(this.execOptions.env.PORT!);
         }
 
         const child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions);
@@ -208,7 +216,7 @@ class Service {
             };
             this.setHttpOptions(options);
             const req = http.get(options, (res) => {
-                if (res.statusCode >= 500) {
+                if (res.statusCode! >= 500) {
                     return reject(new Error(`Response code ${res.statusCode}`));
                 }
                 resolve();
@@ -236,7 +244,7 @@ class Service {
     }
 }
 
-async function runDeploy(repo, stream) {
+async function runDeploy(repo: string, stream?: stream.Writable) {
     if (repo === '.' || repo.includes('..') || /[^A-Za-z0-9\._\-]/.test(repo)) {
         throw new Error('Invalid repo name: ' + repo);
     }
@@ -280,12 +288,9 @@ try {
 } catch { }
 
 class ProxyStream extends stream.Writable {
-    constructor(options) {
-        super(options);
-        this.data = '';
-    }
+    public data: string = '';
 
-    _write(chunk, _, cb) {
+    _write(chunk: Buffer, _encoding: string, cb: () => void) {
         this.data += chunk.toString();
         cb();
     }
@@ -294,7 +299,7 @@ class ProxyStream extends stream.Writable {
 http.createServer((req, res) => {
     const stream = new ProxyStream();
 
-    runDeploy(req.url.substr(1), stream)
+    runDeploy(req.url!.substr(1), stream)
     .then(() => {
         stream.end();
 
@@ -327,7 +332,7 @@ http.createServer((req, res) => {
         return;
     }
 
-    const innerOptions = {
+    const innerOptions: http.RequestOptions = {
         path: req.url,
         headers: req.headers,
         method: req.method,
@@ -338,7 +343,7 @@ http.createServer((req, res) => {
     service.setHttpOptions(innerOptions);
 
     const innerReq = http.request(innerOptions, (innerRes) => {
-        res.writeHead(innerRes.statusCode, innerRes.headers);
+        res.writeHead(innerRes.statusCode!, innerRes.headers);
         innerRes.pipe(res);
     });
 
