@@ -27,12 +27,14 @@ class Service {
     }
 
     async init() {
+        console.log('INIT', this.folder);
         for (const cmd of this.lang.init) {
             child_process.execSync(cmd, this.execOptions);
         }
     }
     
     async start() {
+        console.log('START', this.folder);
         this.shouldRun = true;
         if (this.child) {
             return;
@@ -44,6 +46,7 @@ class Service {
     }
 
     async stop() {
+        console.log('STOP', this.folder);
         this.shouldRun = false;
         if (this.child) {
             this.child.kill();
