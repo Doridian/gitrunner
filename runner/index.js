@@ -66,7 +66,10 @@ class Service {
         this.execOptions = {
             cwd: folder,
             stdio: ['inherit', 'inherit', 'inherit'],
-            env: {},
+            env: {
+                PATH: process.env.PATH,
+                NODE_ENV: 'production',
+            },
         };
     }
 
