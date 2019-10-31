@@ -180,7 +180,7 @@ async function runDeploy(repo) {
             continue;
         }
 
-        console.log(path.join(folder, langVal.file));
+        console.log(folder, path.join(folder, langVal.file));
 
         if (await existsAsync(path.join(folder, langVal.file))) {
             console.log('Detected runtime', langName);
