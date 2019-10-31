@@ -12,7 +12,7 @@ do
 		echo "Deploying $newrev..."
 		mkdir -p "$TARGET_DIR"
 		git "--work-tree=$TARGET_DIR" "--git-dir=$GIT_DIR" checkout -f "$newrev" -q
-		curl -v -s --unix-socket '/tmp/gitdeploy-master.sock' "http://127.0.0.1/$REPO"
+		curl -s --unix-socket '/tmp/gitdeploy-master.sock' "http://127.0.0.1/$REPO"
 		echo "Deploy completed"
 	fi
 done
