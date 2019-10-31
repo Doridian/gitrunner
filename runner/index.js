@@ -128,8 +128,6 @@ class Service {
                 stdiot: ['ignore', initStream, initStream],
             });
         }
-
-        return data;
     }
 
     async start() {
