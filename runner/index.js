@@ -82,6 +82,16 @@ class Service {
         return this.execOptions.env.PORT;
     }
 
+    setHttpOptions(options) {
+        const port = this.getPort();
+        if (isFinite(port)) {
+            options.host = '127.0.0.1';
+            options.port = port;
+        } else {
+            options.socketPath = port;
+        }
+    }
+
     _assignPort() {
         if (this.execOptions.env.PORT) {
             return this.execOptions.env.PORT;
@@ -168,15 +178,32 @@ class Service {
             this.child = undefined;
         }
     }
+    
+    async _check() {
+        return new Promise((resolve, reject) => {
+            const options = {
+                path: '/healthcheck',
+            };
+            this.setHttpOptions(options);
+            const req = http.get(options, (res) => {
+                if (res.statusCode >= 500) {
+                    return reject(new Error(`Response code ${res.statusCode}`));
+                }
+                resolve();
+            });
+            req.on('error', reject);
+        });
+    }
 
     async check() {
         if (!this.shouldRun) {
             return;
         }
 
-        // TODO: Run checks
-        const success = true;
-        if (!success) {
+        try {
+            await this._check();
+        } catch (e) { 
+            console.error('Error checking service', this.name, e.stack || e);
             await this.restart();
         }
     }
@@ -257,8 +284,6 @@ http.createServer((req, res) => {
         return;
     }
 
-    const port = service.getPort();
-
     const innerOptions = {
         path: req.url,
         headers: req.headers,
@@ -266,12 +291,7 @@ http.createServer((req, res) => {
         setHost: false,
     };
 
-    if (isFinite(port)) {
-        innerOptions.host = '127.0.0.1';
-        innerOptions.port = port;
-    } else {
-        innerOptions.socketPath = port;
-    }
+    service.setHttpOptions(innerOptions);
 
     const innerReq = http.request(innerOptions, (innerRes) => {
         res.writeHead(innerRes.statusCode, innerRes.headers);
