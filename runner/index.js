@@ -5,6 +5,7 @@ const child_process = require('child_process');
 const util = require('util');
 const fs = require('fs');
 const path = require('path');
+const stream = require('stream');
 
 const BASEDIR = '/srv/deploy';
 
@@ -261,23 +262,31 @@ try {
     fs.unlinkSync('/tmp/gitdeploy-master.sock');
 } catch { }
 
+class ProxyStream extends stream.Writable {
+    constructor(options) {
+        super(options);
+        this.data = '';
+    }
+
+    _write(chunk, enc, cb) {
+        this.data += chunk.toString(enc);
+        cb();
+    }
+}
+
 http.createServer((req, res) => {
-    const stream = new WritableStream();
-    let data = '';
-    stream.on('data', chunk => {
-        data += chunk;
-    });
+    const stream = new ProxyStream();
 
     runDeploy(req.url.substr(1), stream)
     .then(() => {
         res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.write(stream);
+        res.write(stream.data);
         res.end();
     }, err => {
         res.writeHead(500, {'Content-Type': 'text/plain'});
         res.write(err.stack || err);
         res.write('\n');
-        res.write(data);
+        res.write(stream.data);
         res.end();
     });
 }).listen('/tmp/gitdeploy-master.sock');
