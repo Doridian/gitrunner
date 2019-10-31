@@ -26,8 +26,8 @@ async function spawnAsync(cmd: string, args: string[], options: ExecOptions) {
         proc.on('error', reject);
 
         if (pipe) {
-            proc.stdout.pipe(pipe, { end: false });
-            proc.stderr.pipe(pipe, { end: false });
+            proc.stdout!.pipe(pipe, { end: false });
+            proc.stderr!.pipe(pipe, { end: false });
         }
     });
 }
@@ -71,9 +71,11 @@ const USEDPORTS: {
     [key: string]: Service;
 } = {};
 
+type StdioAny = child_process.StdioNull | child_process.StdioPipe;
+
 interface ExecOptions {
     cwd: string;
-    stdio: [child_process.StdioNull, child_process.StdioNull, child_process.StdioNull];
+    stdio: [child_process.StdioNull, StdioAny, StdioAny];
     env: {
         [key: string]: string | undefined;
     };
@@ -82,7 +84,7 @@ interface ExecOptions {
 
 class Service {
     private shouldRun = false;
-    private child: child_process.ChildProcessWithoutNullStreams | undefined;
+    private child: child_process.ChildProcess | undefined;
     private execOptions: ExecOptions;
     constructor(folder: string, private name: string, private lang: Language) {
         this.execOptions = {
