@@ -41,7 +41,8 @@ class Service {
             return;
         }
 
-        this.child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions, () => {
+        this.child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions);
+        this.child.on('exit', () => {
             this.child = undefined;
             this.restart();
         });
