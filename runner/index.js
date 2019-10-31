@@ -73,6 +73,7 @@ class Service {
             env: {
                 PATH: process.env.PATH,
                 NODE_ENV: 'production',
+                ENV: 'production',
             },
         };
     }
