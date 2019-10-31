@@ -198,7 +198,9 @@ async function runDeploy(repo) {
     await service.start();
 }
 
-fs.unlinkSync('/tmp/gitdeploy-master.sock');
+try {
+    fs.unlinkSync('/tmp/gitdeploy-master.sock');
+} catch { }
 
 http.createServer((req, res) => {
     runDeploy(req.url.substr(1))
