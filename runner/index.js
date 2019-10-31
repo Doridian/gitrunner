@@ -163,9 +163,15 @@ class Service {
         }
     }
 
-    async check() { // TODO: Globally loop through all
+    async check() {
         if (!this.shouldRun) {
             return;
+        }
+
+        // TODO: Run checks
+        const success = true;
+        if (!success) {
+            await this.restart();
         }
     }
 
@@ -270,3 +276,17 @@ http.createServer((req, res) => {
 }).listen(8000, '0.0.0.0');
 
 console.log('Online.');
+
+async function runChecks() {
+    for (const serviceName of Object.keys(SERVICES)) {
+        const service = SERVICES[serviceName];
+        try {
+            await service.check();
+        } catch(e) {
+            console.error('Error checking service', serviceName, e.stack || e);
+        }
+    }
+    setTimeout(runChecks, 30000);
+}
+
+runChecks();
