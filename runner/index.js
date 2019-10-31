@@ -6,8 +6,8 @@ const child_process = require('child_process');
 const LANGUAGES = {
     nodejs: {
         init: [
-            'npm ci',
-            'npm run build --if-present',
+            ['npm', ['ci']],
+            ['npm' ['run', 'build', '--if-present']],
         ],
         run: 'npm start'
     },
@@ -30,7 +30,7 @@ class Service {
     async init() {
         console.log('INIT', this.folder);
         for (const cmd of this.lang.init) {
-            child_process.spawnSync(cmd, this.execOptions);
+            child_process.spawnSync(cmd[0], cmd[1], this.execOptions);
         }
     }
     
@@ -41,7 +41,7 @@ class Service {
             return;
         }
 
-        this.child = child_process.spawn(this.lang.run, this.execOptions, () => {
+        this.child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions, () => {
             this.child = undefined;
             this.restart();
         });
