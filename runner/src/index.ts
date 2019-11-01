@@ -302,7 +302,17 @@ class ProxyStream extends stream.Writable {
     }
 }
 
-http.createServer((req, res) => {
+function listenPerms(server: http.Server, socket: string, perms: string) {
+    try {
+        fs.unlinkSync(socket);
+    } catch { }
+
+    server.listen(socket, () => {
+        fs.chmodSync(socket, perms);
+    });
+}
+
+listenPerms(http.createServer((req, res) => {
     const stream = new ProxyStream();
 
     runDeploy(req.url!.substr(1), stream)
@@ -321,9 +331,9 @@ http.createServer((req, res) => {
         res.write(stream.data);
         res.end();
     });
-}).listen('/tmp/gitdeploy-master.sock');
+}), '/tmp/gitdeploy-master.sock', '700');
 
-http.createServer((req, res) => {
+listenPerms(http.createServer((req, res) => {
     const host = req.headers.host;
     if (!host) {
         res.writeHead(400);
@@ -360,7 +370,7 @@ http.createServer((req, res) => {
     });
 
     req.pipe(innerReq);
-}).listen('/tmp/gitdeploy-proxy.sock');
+}), '/tmp/gitdeploy-proxy.sock', '775');
 
 console.log('Online.');
 
