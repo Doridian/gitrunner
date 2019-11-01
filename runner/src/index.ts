@@ -289,6 +289,10 @@ try {
     fs.unlinkSync('/tmp/gitdeploy-master.sock');
 } catch { }
 
+try {
+    fs.unlinkSync('/tmp/gitdeploy-proxy.sock');
+} catch { }
+
 class ProxyStream extends stream.Writable {
     public data: string = '';
 
@@ -356,7 +360,7 @@ http.createServer((req, res) => {
     });
 
     req.pipe(innerReq);
-}).listen(8000, '0.0.0.0');
+}).listen('/tmp/gitdeploy-proxy.sock');
 
 console.log('Online.');
 
