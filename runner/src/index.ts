@@ -106,11 +106,15 @@ class Service {
 
     setHttpOptions(options: http.RequestOptions) {
         const port = this.getPort();
-        if (port !== undefined && isFinite(parseInt(port, 10))) {
+        if (!port) {
+            return;
+        }
+
+        if (parseInt(port, 10) > 0) {
             options.host = '127.0.0.1';
             options.port = port;
         } else {
-            options.socketPath = port;
+            options.socketPath = port.replace('/app', this.folder);
         }
     }
 
@@ -120,7 +124,7 @@ class Service {
         }
 
         if (this.lang.allowUnix) {
-            return `/srv/sockets/${this.name}.sock`;
+            return '/app/server.sock';
         }
 
         for (let i = PORTBASE; i < PORTMAX; i++) {
