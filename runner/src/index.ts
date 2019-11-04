@@ -182,8 +182,11 @@ class Service {
 
         console.log('START', this.name);
         
-        if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT!)) {
-            await unlinkAsync(this.execOptions.env.PORT!);
+        if (this.lang.allowUnix) {
+            const unixRealPath = this.execOptions.env.PORT!.replace('/app', this.folder)
+            if (await existsAsync(unixRealPath)) {
+                await unlinkAsync(unixRealPath);
+            }
         }
 
         const child = child_process.spawn(LOADER, [this.folder, ...this.lang.run], this.execOptions);
