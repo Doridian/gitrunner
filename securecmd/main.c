@@ -10,6 +10,8 @@
 #include <string.h>
 #include <sched.h>
 
+#define ROOTDIR "/mnt"
+
 static int fcopy(const char *fn1, const char *fn2) {
     char            buffer[BUFSIZ];
     size_t          n;
@@ -30,15 +32,15 @@ static int fcopy(const char *fn1, const char *fn2) {
 }
 
 #define DOMOUNT(DIR, SRC, TYPE, FLAGS) { \
-    if (mkdir("/opt" DIR, 0755)) { \
+    if (mkdir(ROOTDIR DIR, 0755)) { \
         perror("mkdir_bind_" DIR); \
         return 1; \
     } \
-    if (mount(SRC, "/opt" DIR, TYPE, FLAGS, NULL)) { \
+    if (mount(SRC, ROOTDIR DIR, TYPE, (FLAGS) | MS_NODEV | MS_NOSUID, NULL)) { \
         perror("mount_bind_" DIR); \
         return 1; \
     } \
-    if (mount(SRC, "/opt" DIR, TYPE, MS_REMOUNT | FLAGS, NULL)) { \
+    if (mount(SRC, ROOTDIR DIR, TYPE, MS_REMOUNT | (FLAGS) | MS_NODEV | MS_NOSUID, NULL)) { \
         perror("mount_bind_" DIR); \
         return 1; \
     } \
@@ -49,7 +51,7 @@ static int fcopy(const char *fn1, const char *fn2) {
 #define BINDMOUNT(DIR) { BINDMOUNT_EX(DIR, DIR, MS_RDONLY); }
 
 #define COPYFILE(FILE) { \
-    if (fcopy(FILE, "/opt" FILE)) { \
+    if (fcopy(FILE, ROOTDIR FILE)) { \
         printf("Error copying file " FILE); \
         return 1; \
     } \
@@ -57,60 +59,55 @@ static int fcopy(const char *fn1, const char *fn2) {
 
 static int secure_me(int uid, int gid, const char *appdir) {
     if (unshare(CLONE_NEWUSER | CLONE_NEWPID)) {
-		perror("CLONE_NEWUSER");
-		return 1;
-	}
+        perror("CLONE_NEWUSER");
+        return 1;
+    }
 
-	int fd = open("/proc/self/uid_map", O_WRONLY);
-	if(fd < 0) {
-		perror("uid_map_open");
-		return 1;
-	}
-	if(dprintf(fd, "%d %d 1\n", uid, uid) < 0) {
-		perror("uid_map_dprintf");
-		return 1;
-	}
-	close(fd);
+    int fd = open("/proc/self/uid_map", O_WRONLY);
+    if(fd < 0) {
+        perror("uid_map_open");
+        return 1;
+    }
+    if(dprintf(fd, "%d %d 1\n", uid, uid) < 0) {
+        perror("uid_map_dprintf");
+        return 1;
+    }
+    close(fd);
 
-	fd = open("/proc/self/setgroups", O_WRONLY);
-	if(fd < 0) {
-		perror("setgroups_open");
-		return 1;
-	}
-	if (dprintf(fd, "deny\n") < 0) {
-		perror("setgroups_dprintf");
-		return 1;
-	}
-	close(fd);
+    fd = open("/proc/self/setgroups", O_WRONLY);
+    if(fd < 0) {
+        perror("setgroups_open");
+        return 1;
+    }
+    if (dprintf(fd, "deny\n") < 0) {
+        perror("setgroups_dprintf");
+        return 1;
+    }
+    close(fd);
 
-	fd = open("/proc/self/gid_map", O_WRONLY);
-	if(fd < 0) {
-		perror("gid_map_open");
-		return 1;
-	}
-	if (dprintf(fd, "%d %d 1\n", gid, gid) < 0) {
-		perror("gid_map_dprintf");
-		return 1;
-	}
-	close(fd);
+    fd = open("/proc/self/gid_map", O_WRONLY);
+    if(fd < 0) {
+        perror("gid_map_open");
+        return 1;
+    }
+    if (dprintf(fd, "%d %d 1\n", gid, gid) < 0) {
+        perror("gid_map_dprintf");
+        return 1;
+    }
+    close(fd);
 
-	if (unshare(CLONE_NEWNS)) {
-		perror("CLONE_NEWNS");
-		return 1;
-	}
+    if (unshare(CLONE_NEWNS)) {
+        perror("CLONE_NEWNS");
+        return 1;
+    }
 
-    if (mount("tmpfs", "/opt", "tmpfs", 0, NULL)) {
+    if (mount("tmpfs", ROOTDIR, "tmpfs", MS_NOSUID | MS_NODEV, "size=1M")) {
         perror("mount_root");
         return 1;
     }
 
-    if (mkdir("/opt/etc", 0755)) {
+    if (mkdir(ROOTDIR "/etc", 0755)) {
         perror("mkdir_etc");
-        return 1;
-    }
-
-    if (mkdir("/opt/tmp", 01777)) {
-        perror("mkdir_tmp");
         return 1;
     }
 
@@ -122,8 +119,14 @@ static int secure_me(int uid, int gid, const char *appdir) {
 
     BINDMOUNT_EX(appdir, "/app", 0);
 
+    mkdir(ROOTDIR "/app/.tmp", 01777);
+    chmod(ROOTDIR "/app/.tmp", 01777);
+    symlink("/app/.tmp", ROOTDIR "/tmp");
+
     COPYFILE("/etc/resolv.conf");
     COPYFILE("/etc/hosts");
+    COPYFILE("/etc/passwd");
+    COPYFILE("/etc/group");
 
     const pid_t fpid = fork();
     if (fpid < 0) {
@@ -137,33 +140,35 @@ static int secure_me(int uid, int gid, const char *appdir) {
 
     DOMOUNT("/proc", "none", "proc", 0);
 
-	if (chroot("/opt")) {
-		perror("chroot");
-		return 1;
-	}
+    mount("tmpfs", ROOTDIR, "tmpfs", MS_REMOUNT | MS_NODEV | MS_NOSUID | MS_RDONLY, NULL);
 
-	if (chdir("/app")) {
-		perror("chdir_root");
-		return 1;
-	}
+    if (chroot(ROOTDIR)) {
+        perror("chroot");
+        return 1;
+    }
 
-	if (setresuid(uid, uid, uid)) {
-		perror("setresuid");
-		return 1;
-	}
+    if (chdir("/app")) {
+        perror("chdir_root");
+        return 1;
+    }
 
-	if (setresgid(gid, gid, gid)) {
-		perror("setresgid");
-		return 1;
-	}
+    if (setresuid(uid, uid, uid)) {
+        perror("setresuid");
+        return 1;
+    }
+
+    if (setresgid(gid, gid, gid)) {
+        perror("setresgid");
+        return 1;
+    }
 }
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         printf("Usage: %s appdir program [args...]\n", argv[0]);
     }
-	const int uid = getuid();
-	const int gid = getgid();
+    const int uid = getuid();
+    const int gid = getgid();
 
     if (secure_me(uid, gid, argv[1])) {
         return 1;
