@@ -137,7 +137,7 @@ static int secure_me(int uid, int gid, const char *appdir) {
 		return 1;
 	}
 
-	if (chdir("/")) {
+	if (chdir("/app")) {
 		perror("chdir_root");
 		return 1;
 	}
