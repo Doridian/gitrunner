@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as stream from 'stream';
 
 const BASEDIR = '/srv/deploy';
-const LOADER = path.join(__dirname, '../securecmd/main');
+const LOADER = path.join(__dirname, '../../securecmd/main');
 
 async function spawnAsync(cmd: string, args: string[], options: ExecOptions) {
     const pipe = options.pipe;
