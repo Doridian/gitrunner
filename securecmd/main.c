@@ -44,7 +44,9 @@ static int fcopy(const char *fn1, const char *fn2) {
     } \
 }
 
-#define BINDMOUNT(DIR) { DOMOUNT(DIR, DIR, NULL, MS_BIND | MS_RDONLY); }
+#define BINDMOUNT_EX(SRC, DIR) { DOMOUNT(DIR, SRC, NULL, MS_BIND | MS_RDONLY); }
+
+#define BINDMOUNT(DIR) { BINDMOUNT_EX(DIR, DIR); }
 
 #define COPYFILE(FILE) { \
     if (fcopy(FILE, "/opt" FILE)) { \
@@ -53,7 +55,7 @@ static int fcopy(const char *fn1, const char *fn2) {
     } \
 }
 
-static int secure_me(int uid, int gid) {
+static int secure_me(int uid, int gid, const char *appdir) {
     if (unshare(CLONE_NEWUSER | CLONE_NEWPID)) {
 		perror("CLONE_NEWUSER");
 		return 1;
@@ -113,6 +115,8 @@ static int secure_me(int uid, int gid) {
     BINDMOUNT("/lib");
     BINDMOUNT("/lib64");
 
+    BINDMOUNT_EX(appdir, "/app");
+
     COPYFILE("/etc/resolv.conf");
     COPYFILE("/etc/hosts");
 
@@ -150,15 +154,15 @@ static int secure_me(int uid, int gid) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s program [args...]\n", argv[0]);
+    if (argc < 3) {
+        printf("Usage: %s appdir program [args...]\n", argv[0]);
     }
 	const int uid = getuid();
 	const int gid = getgid();
 
-    if (secure_me(uid, gid)) {
+    if (secure_me(uid, gid, argv[1])) {
         return 1;
     }
 
-    return execvp(argv[1], argv + 1);
+    return execvp(argv[2], argv + 2);
 }
