@@ -124,7 +124,7 @@ class Service {
         }
 
         if (this.lang.allowUnix) {
-            return '/app/.tmp/server.sock';
+            return '/app/server.sock';
         }
 
         for (let i = PORTBASE; i < PORTMAX; i++) {
