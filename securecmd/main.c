@@ -109,6 +109,11 @@ static int secure_me(int uid, int gid, const char *appdir) {
         return 1;
     }
 
+    if (mkdir("/opt/tmp", 01777)) {
+        perror("mkdir_tmp");
+        return 1;
+    }
+
     BINDMOUNT("/usr");
     BINDMOUNT("/bin");
     BINDMOUNT("/sbin");
