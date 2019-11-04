@@ -46,7 +46,7 @@ static int fcopy(const char *fn1, const char *fn2) {
 
 #define BINDMOUNT_EX(SRC, DIR, FLAGS) { DOMOUNT(DIR, SRC, NULL, MS_BIND | (FLAGS)); }
 
-#define BINDMOUNT(DIR, FLAGS) { BINDMOUNT_EX(DIR, DIR, MS_RDONLY); }
+#define BINDMOUNT(DIR) { BINDMOUNT_EX(DIR, DIR, MS_RDONLY); }
 
 #define COPYFILE(FILE) { \
     if (fcopy(FILE, "/opt" FILE)) { \
