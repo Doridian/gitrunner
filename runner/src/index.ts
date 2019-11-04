@@ -93,6 +93,7 @@ class Service {
             stdio: ['ignore', 'inherit', 'inherit'],
             env: {
                 PATH: process.env.PATH,
+                HOME: '/app',
                 NODE_ENV: 'production',
                 ENV: 'production',
             },
