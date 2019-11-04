@@ -44,9 +44,9 @@ static int fcopy(const char *fn1, const char *fn2) {
     } \
 }
 
-#define BINDMOUNT_EX(SRC, DIR) { DOMOUNT(DIR, SRC, NULL, MS_BIND | MS_RDONLY); }
+#define BINDMOUNT_EX(SRC, DIR, FLAGS) { DOMOUNT(DIR, SRC, NULL, MS_BIND | (FLAGS)); }
 
-#define BINDMOUNT(DIR) { BINDMOUNT_EX(DIR, DIR); }
+#define BINDMOUNT(DIR) { BINDMOUNT_EX(DIR, DIR, MS_RDONLY); }
 
 #define COPYFILE(FILE) { \
     if (fcopy(FILE, "/opt" FILE)) { \
@@ -109,13 +109,18 @@ static int secure_me(int uid, int gid, const char *appdir) {
         return 1;
     }
 
+    if (mkdir("/opt/tmp", 01777)) {
+        perror("mkdir_tmp");
+        return 1;
+    }
+
     BINDMOUNT("/usr");
     BINDMOUNT("/bin");
     BINDMOUNT("/sbin");
     BINDMOUNT("/lib");
     BINDMOUNT("/lib64");
 
-    BINDMOUNT_EX(appdir, "/app");
+    BINDMOUNT_EX(appdir, "/app", 0);
 
     COPYFILE("/etc/resolv.conf");
     COPYFILE("/etc/hosts");
@@ -137,7 +142,7 @@ static int secure_me(int uid, int gid, const char *appdir) {
 		return 1;
 	}
 
-	if (chdir("/")) {
+	if (chdir("/app")) {
 		perror("chdir_root");
 		return 1;
 	}

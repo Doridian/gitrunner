@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as stream from 'stream';
 
 const BASEDIR = '/srv/deploy';
+const LOADER = path.join(__dirname, '../../securecmd/main');
 
 async function spawnAsync(cmd: string, args: string[], options: ExecOptions) {
     const pipe = options.pipe;
@@ -37,8 +38,8 @@ const existsAsync = util.promisify(fs.exists);
 
 interface Language {
     file?: string;
-    init: [string, string[]][];
-    run: [string, string[]];
+    init: string[][];
+    run: string[];
     allowUnix: boolean;
 }
 
@@ -48,15 +49,15 @@ const LANGUAGES: {
     nodejs: {
         file: 'package.json',
         init: [
-            ['npm', ['ci']],
-            ['npm', ['run', 'build', '--if-present']],
+            ['npm', 'ci'],
+            ['npm', 'run', 'build', '--if-present'],
         ],
-        run: ['npm', ['start']],
+        run: ['npm', 'start'],
         allowUnix: true,
     },
     default: {
-        init: [['./init', []]],
-        run: ['./run', []],
+        init: [['./init']],
+        run: ['./run'],
         allowUnix: true,
     },
 };
@@ -86,12 +87,13 @@ class Service {
     private shouldRun = false;
     private child: child_process.ChildProcess | undefined;
     private execOptions: ExecOptions;
-    constructor(folder: string, private name: string, private lang: Language) {
+    constructor(private folder: string, private name: string, private lang: Language) {
         this.execOptions = {
             cwd: folder,
             stdio: ['ignore', 'inherit', 'inherit'],
             env: {
                 PATH: process.env.PATH,
+                HOME: '/app',
                 NODE_ENV: 'production',
                 ENV: 'production',
             },
@@ -104,11 +106,15 @@ class Service {
 
     setHttpOptions(options: http.RequestOptions) {
         const port = this.getPort();
-        if (port !== undefined && isFinite(parseInt(port, 10))) {
+        if (!port) {
+            return;
+        }
+
+        if (parseInt(port, 10) > 0) {
             options.host = '127.0.0.1';
             options.port = port;
         } else {
-            options.socketPath = port;
+            options.socketPath = port.replace('/app', this.folder);
         }
     }
 
@@ -118,7 +124,7 @@ class Service {
         }
 
         if (this.lang.allowUnix) {
-            return `/srv/sockets/${this.name}.sock`;
+            return '/app/server.sock';
         }
 
         for (let i = PORTBASE; i < PORTMAX; i++) {
@@ -149,7 +155,7 @@ class Service {
         }
 
         for (const cmd of this.lang.init) {
-            await spawnAsync(cmd[0], cmd[1], {
+            await spawnAsync(LOADER, [this.folder, ...cmd], {
                 ...this.execOptions,
                 stdio: ['ignore', stdioType, stdioType],
                 pipe: initStream,
@@ -176,11 +182,14 @@ class Service {
 
         console.log('START', this.name);
         
-        if (this.lang.allowUnix && await existsAsync(this.execOptions.env.PORT!)) {
-            await unlinkAsync(this.execOptions.env.PORT!);
+        if (this.lang.allowUnix) {
+            const unixRealPath = this.execOptions.env.PORT!.replace('/app', this.folder)
+            if (await existsAsync(unixRealPath)) {
+                await unlinkAsync(unixRealPath);
+            }
         }
 
-        const child = child_process.spawn(this.lang.run[0], this.lang.run[1], this.execOptions);
+        const child = child_process.spawn(LOADER, [this.folder, ...this.lang.run], this.execOptions);
         this.child = child;
 
         const self = this;
